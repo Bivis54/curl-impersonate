@@ -317,7 +317,7 @@ $(CURL_VERSION).tar.gz:
 		-o "$(CURL_VERSION).tar.gz"
 
 # Apply the "Chorme version" patches and mark using a dummy file
-$(CURL_VERSION)/.patched: $(srcdir)/patches/curl.patch
+$(CURL_VERSION)/.patched: $(srcdir)/patches/curl.patch $(srcdir)/patches/websocket-deflate.patch
 	rm -Rf $(CURL_VERSION)
 	tar -xf $(CURL_VERSION).tar.gz
 	mv curl-$(CURL_VERSION) $(CURL_VERSION)  # fix directory name
