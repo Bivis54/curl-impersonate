@@ -531,6 +531,21 @@ if(CURL_SUBPROJECT_FORCE_OPENSSL_PATHS)
 endif()
 
 _track_external_project_patch(curl _curl_patch_file _curl_patch_changed)
+
+# Extra curl patch: report the permessage-deflate RSV1 bit to the application
+# instead of rejecting the frame. libcurl still does not implement RFC 7692;
+# inflating the payload is left to the caller.
+set(_curl_ws_deflate_patch_file
+  "${CMAKE_SOURCE_DIR}/patches/websocket-deflate.patch")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${_curl_ws_deflate_patch_file}")
+set(_curl_patch_stamp
+  "${CMAKE_BINARY_DIR}/curl-prefix/src/curl-stamp/curl-patch")
+if(EXISTS "${_curl_patch_stamp}" AND
+   "${_curl_ws_deflate_patch_file}" IS_NEWER_THAN "${_curl_patch_stamp}")
+  set(_curl_patch_changed ON)
+  _invalidate_external_project(curl "websocket-deflate.patch changed")
+endif()
 if(NOT _curl_patch_changed AND
    (_brotli_patch_changed OR _boringssl_patch_changed OR
     _nghttp3_patch_changed OR _ngtcp2_patch_changed))
@@ -545,6 +560,7 @@ ExternalProject_Add(curl
   BINARY_DIR "${DEPS_BUILD_DIR}/curl"
   INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
   PATCH_COMMAND ${PATCH_EXE} -p1 -i "${_curl_patch_file}"
+        COMMAND ${PATCH_EXE} -p1 -i "${_curl_ws_deflate_patch_file}"
   DEPENDS ${_curl_deps}
   CONFIGURE_COMMAND
     ${CMAKE_COMMAND} -E env
