@@ -537,14 +537,23 @@ _track_external_project_patch(curl _curl_patch_file _curl_patch_changed)
 # inflating the payload is left to the caller.
 set(_curl_ws_deflate_patch_file
   "${CMAKE_SOURCE_DIR}/patches/websocket-deflate.patch")
+set(_curl_trust_anchors_patch_file
+  "${CMAKE_SOURCE_DIR}/patches/trust-anchors.patch")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${_curl_ws_deflate_patch_file}")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${_curl_trust_anchors_patch_file}")
 set(_curl_patch_stamp
   "${CMAKE_BINARY_DIR}/curl-prefix/src/curl-stamp/curl-patch")
 if(EXISTS "${_curl_patch_stamp}" AND
    "${_curl_ws_deflate_patch_file}" IS_NEWER_THAN "${_curl_patch_stamp}")
   set(_curl_patch_changed ON)
   _invalidate_external_project(curl "websocket-deflate.patch changed")
+endif()
+if(EXISTS "${_curl_patch_stamp}" AND
+   "${_curl_trust_anchors_patch_file}" IS_NEWER_THAN "${_curl_patch_stamp}")
+  set(_curl_patch_changed ON)
+  _invalidate_external_project(curl "trust-anchors.patch changed")
 endif()
 if(NOT _curl_patch_changed AND
    (_brotli_patch_changed OR _boringssl_patch_changed OR
@@ -561,6 +570,7 @@ ExternalProject_Add(curl
   INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
   PATCH_COMMAND ${PATCH_EXE} -p1 -i "${_curl_patch_file}"
         COMMAND ${PATCH_EXE} -p1 -i "${_curl_ws_deflate_patch_file}"
+        COMMAND ${PATCH_EXE} -p1 -i "${_curl_trust_anchors_patch_file}"
   DEPENDS ${_curl_deps}
   CONFIGURE_COMMAND
     ${CMAKE_COMMAND} -E env

@@ -1,0 +1,244 @@
+diff -Naur curl-curl-8_21_0/include/curl/curl.h curl-work/include/curl/curl.h
+--- a/include/curl/curl.h	2026-09-03 21:22:15.720863787 +0300
++++ b/include/curl/curl.h	2026-09-03 21:29:04.304761860 +0300
+@@ -2340,6 +2340,12 @@
+   /* curl-impersonate: firefox delegated credentials */
+   CURLOPT(CURLOPT_TLS_DELEGATED_CREDENTIALS, CURLOPTTYPE_STRINGPOINT, 1017),
+ 
++  /* curl-impersonate: TLS trust anchor IDs, extension 0xca34
++     (draft-ietf-tls-trust-anchor-ids). Chrome sends it by default since 141.
++     The value is the wire-format list in hex: a series of 8-bit
++     length-prefixed IDs. An empty string still sends the extension. */
++  CURLOPT(CURLOPT_TLS_TRUST_ANCHORS, CURLOPTTYPE_STRINGPOINT, 1039),
++
+   /* curl-impersonate: firefox record size limit */
+   CURLOPT(CURLOPT_TLS_RECORD_SIZE_LIMIT, CURLOPTTYPE_LONG, 1018),
+ 
+diff -Naur curl-curl-8_21_0/lib/easy.c curl-work/lib/easy.c
+--- a/lib/easy.c	2026-09-03 21:22:15.724863787 +0300
++++ b/lib/easy.c	2026-09-03 21:29:04.304761860 +0300
+@@ -586,6 +586,12 @@
+       return ret;
+   }
+ 
++  if(opts->tls_trust_anchors) {
++    ret = curl_easy_setopt(data, CURLOPT_TLS_TRUST_ANCHORS, opts->tls_trust_anchors);
++    if(ret)
++      return ret;
++  }
++
+   if(opts->tls_record_size_limit) {
+     ret = curl_easy_setopt(data, CURLOPT_TLS_RECORD_SIZE_LIMIT, opts->tls_record_size_limit);
+     if(ret)
+diff -Naur curl-curl-8_21_0/lib/easyoptions.c curl-work/lib/easyoptions.c
+--- a/lib/easyoptions.c	2026-09-03 21:22:15.724863787 +0300
++++ b/lib/easyoptions.c	2026-09-03 21:29:04.304761860 +0300
+@@ -386,6 +386,8 @@
+   { "TLSAUTH_USERNAME", CURLOPT_TLSAUTH_USERNAME, CURLOT_STRING, 0 },
+   { "TLS_DELEGATED_CREDENTIALS", CURLOPT_TLS_DELEGATED_CREDENTIALS,
+     CURLOT_STRING, 0 },
++  { "TLS_TRUST_ANCHORS", CURLOPT_TLS_TRUST_ANCHORS,
++    CURLOT_STRING, 0 },
+   { "TLS_EXTENSION_ORDER", CURLOPT_TLS_EXTENSION_ORDER, CURLOT_STRING, 0 },
+   { "TLS_GREASE", CURLOPT_TLS_GREASE, CURLOT_LONG, 0 },
+   { "TLS_KEY_SHARES_LIMIT", CURLOPT_TLS_KEY_SHARES_LIMIT, CURLOT_LONG, 0 },
+diff -Naur curl-curl-8_21_0/lib/impersonate.c curl-work/lib/impersonate.c
+--- a/lib/impersonate.c	2026-09-03 21:22:15.724863787 +0300
++++ b/lib/impersonate.c	2026-09-03 21:29:04.304761860 +0300
+@@ -959,6 +959,92 @@
+     .form_boundary = "webkit",
+   },
+   {
++    .target = "chrome152",
++    .alias = "chrome152",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256:"
++      "TLS_AES_256_GCM_SHA384:"
++      "TLS_CHACHA20_POLY1305_SHA256:"
++      "ECDHE-ECDSA-AES128-GCM-SHA256:"
++      "ECDHE-RSA-AES128-GCM-SHA256:"
++      "ECDHE-ECDSA-AES256-GCM-SHA384:"
++      "ECDHE-RSA-AES256-GCM-SHA384:"
++      "ECDHE-ECDSA-CHACHA20-POLY1305:"
++      "ECDHE-RSA-CHACHA20-POLY1305:"
++      "ECDHE-RSA-AES128-SHA:"
++      "ECDHE-RSA-AES256-SHA:"
++      "AES128-GCM-SHA256:"
++      "AES256-GCM-SHA384:"
++      "AES128-SHA:"
++      "AES256-SHA",
++    .curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .sig_hash_algs =
++      "mldsa44:"
++      "mldsa65:"
++      "mldsa87:"
++      "ecdsa_secp256r1_sha256:"
++      "rsa_pss_rsae_sha256:"
++      "rsa_pkcs1_sha256:"
++      "ecdsa_secp384r1_sha384:"
++      "rsa_pss_rsae_sha384:"
++      "rsa_pkcs1_sha384:"
++      "rsa_pss_rsae_sha512:"
++      "rsa_pkcs1_sha512",
++    .http3_sig_hash_algs =
++      "ecdsa_secp256r1_sha256:"
++      "rsa_pss_rsae_sha256:"
++      "rsa_pkcs1_sha256:"
++      "ecdsa_secp384r1_sha384:"
++      "rsa_pss_rsae_sha384:"
++      "rsa_pkcs1_sha384:"
++      "rsa_pss_rsae_sha512:"
++      "rsa_pkcs1_sha512:"
++      "rsa_pkcs1_sha1",
++    .npn = false,
++    .alpn = true,
++    .alps = true,
++    .tls_permute_extensions = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \"Chromium\";v=\"152\", \"Not?A_Brand\";v=\"24\", \"Google Chrome\";v=\"152\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br, zstd",
++      "Accept-Language: en-US,en;q=0.9",
++      "Priority: u=0, i"
++    },
++    .http2_settings = "1:65536;2:0;4:6291456;6:262144",
++    .http2_window_update = 15663105,
++    .http2_stream_weight = 256,
++    .http2_stream_exclusive = 1,
++    .http3_settings = "1:65536;6:262144;7:100;51:1;GREASE",
++    .http3_pseudo_headers_order = "masp",
++    .quic_cid_length = "webkit",
++    .quic_transport_parameters = "1:30000;3:1472;4:15728640;5:6291456;6:6291456;7:6291456;8:100;9:103;15:;17:1@1,GREASE;32:65536;12584:0x4f524947;GREASE",
++    .http3_tls_extension_order = "0-10-13-16-27-43-45-51-57-17613-65037",
++    .ech = "true",
++    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = true,
++    .tls_signed_cert_timestamps = true,
++    .tls_grease = true,
++    .split_cookies = true,
++    .form_boundary = "webkit",
++    /* Trust Anchor IDs (extension 0xca34): Chrome sends this list by
++       default since 141. Captured from Chrome 152 on Windows. */
++    .tls_trust_anchors =
++      "08839a648c9b2d010904d679090408839a648c9b2d011204d679090108839a648c9b2d011308839a648c9b2d010804d679090f0582df13020d0582df13020e04d679090708839a648c9b2d010b04d679090a0582df13020f0582df13021404d679090d0582df13020608839a648c9b2d010a04d679090b08839a648c9b2d01070582df1302010582df13021308839a648c9b2d010d0582df13021204d679090504d679090604d679090c04d679090808839a648c9b2d010c",
++  },
++  {
+     .target = "chrome150",
+     .alias = "chrome150",
+     .httpversion = CURL_HTTP_VERSION_2_0,
+diff -Naur curl-curl-8_21_0/lib/impersonate.h curl-work/lib/impersonate.h
+--- a/lib/impersonate.h	2026-09-03 21:22:15.724863787 +0300
++++ b/lib/impersonate.h	2026-09-03 21:29:04.304761860 +0300
+@@ -59,6 +59,8 @@
+   const char *tls_extension_order;
+   const char *http3_tls_extension_order;
+   const char *tls_delegated_credentials;
++  /* TLS trust anchor IDs (extension 0xca34), wire-format list in hex. */
++  const char *tls_trust_anchors;
+   int tls_record_size_limit;
+   int tls_key_shares_limit;  // for firefox key_shares extension
+   bool tls_grease;
+diff -Naur curl-curl-8_21_0/lib/setopt.c curl-work/lib/setopt.c
+--- a/lib/setopt.c	2026-09-03 21:22:15.724863787 +0300
++++ b/lib/setopt.c	2026-09-03 21:29:04.304761860 +0300
+@@ -2767,6 +2767,8 @@
+     return Curl_setstropt(&s->str[STRING_WS_SSL_CERT_COMPRESSION], ptr);
+   case CURLOPT_TLS_DELEGATED_CREDENTIALS:
+     return Curl_setstropt(&s->str[STRING_TLS_DELEGATED_CREDENTIALS], ptr);
++  case CURLOPT_TLS_TRUST_ANCHORS:
++    return Curl_setstropt(&s->str[STRING_TLS_TRUST_ANCHORS], ptr);
+   default:
+     return CURLE_UNKNOWN_OPTION;
+   }
+diff -Naur curl-curl-8_21_0/lib/urldata.h curl-work/lib/urldata.h
+--- a/lib/urldata.h	2026-09-03 21:22:15.724863787 +0300
++++ b/lib/urldata.h	2026-09-03 21:29:04.304761860 +0300
+@@ -921,6 +921,7 @@
+   STRING_TLS_EXTENSION_ORDER,
+   STRING_HTTP3_TLS_EXTENSION_ORDER,
+   STRING_TLS_DELEGATED_CREDENTIALS,
++  STRING_TLS_TRUST_ANCHORS,
+   STRING_SSL_SIGNATURE_ALGORITHMS, /* CURLOPT_SSL_SIGNATURE_ALGORITHMS */
+ 
+   /* -- end of null-terminated strings -- */
+diff -Naur curl-curl-8_21_0/lib/vtls/openssl.c curl-work/lib/vtls/openssl.c
+--- a/lib/vtls/openssl.c	2026-09-03 21:22:15.728863785 +0300
++++ b/lib/vtls/openssl.c	2026-09-03 21:34:47.520614787 +0300
+@@ -3962,6 +3962,21 @@
+                                      alpns_requested, sess_reuse_cb);
+ }
+ 
++#ifdef OPENSSL_IS_BORINGSSL
++/* curl-impersonate: one hex digit to its value, -1 when not a hex digit.
++   Used only by the trust anchor IDs option, which is BoringSSL-only. */
++static int ossl_hexdigit(char c)
++{
++  if(c >= '0' && c <= '9')
++    return c - '0';
++  if(c >= 'a' && c <= 'f')
++    return c - 'a' + 10;
++  if(c >= 'A' && c <= 'F')
++    return c - 'A' + 10;
++  return -1;
++}
++#endif
++
+ static CURLcode ossl_init_method(struct Curl_cfilter *cf,
+                                  struct Curl_easy *data,
+                                  struct ssl_peer *peer,
+@@ -4360,6 +4375,43 @@
+     SSL_CTX_set_delegated_credentials(
+       octx->ssl_ctx, data->set.str[STRING_TLS_DELEGATED_CREDENTIALS]);
+ 
++  /* curl-impersonate: TLS trust anchor IDs, extension 0xca34. The value is the
++     wire-format list in hex; BoringSSL sends the extension even for an empty
++     list, which is what Chrome does when it requests no specific anchors. */
++  if(data->set.str[STRING_TLS_TRUST_ANCHORS]) {
++    const char *hex = data->set.str[STRING_TLS_TRUST_ANCHORS];
++    size_t hexlen = strlen(hex);
++    unsigned char *ids = NULL;
++    int ok;
++
++    if(hexlen % 2) {
++      failf(data, "Invalid TLS trust anchors: odd number of hex digits");
++      return CURLE_SSL_CONNECT_ERROR;
++    }
++    if(hexlen) {
++      size_t i;
++      ids = malloc(hexlen / 2);
++      if(!ids)
++        return CURLE_OUT_OF_MEMORY;
++      for(i = 0; i < hexlen / 2; i++) {
++        int hi = ossl_hexdigit(hex[i * 2]);
++        int lo = ossl_hexdigit(hex[i * 2 + 1]);
++        if(hi < 0 || lo < 0) {
++          free(ids);
++          failf(data, "Invalid TLS trust anchors: not a hex string");
++          return CURLE_SSL_CONNECT_ERROR;
++        }
++        ids[i] = (unsigned char)((hi << 4) | lo);
++      }
++    }
++    ok = SSL_CTX_set1_requested_trust_anchors(octx->ssl_ctx, ids, hexlen / 2);
++    free(ids);
++    if(!ok) {
++      failf(data, "Could not set TLS trust anchors");
++      return CURLE_SSL_CONNECT_ERROR;
++    }
++  }
++
+   if(data->set.tls_record_size_limit)
+     SSL_CTX_set_record_size_limit(octx->ssl_ctx,
+                                   data->set.tls_record_size_limit);
