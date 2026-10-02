@@ -45,7 +45,7 @@ diff -Naur curl-curl-8_21_0/lib/easyoptions.c curl-work/lib/easyoptions.c
 diff -Naur curl-curl-8_21_0/lib/impersonate.c curl-work/lib/impersonate.c
 --- a/lib/impersonate.c	2026-09-03 21:22:15.724863787 +0300
 +++ b/lib/impersonate.c	2026-09-03 21:29:04.304761860 +0300
-@@ -959,6 +959,92 @@
+@@ -959,6 +959,94 @@
      .form_boundary = "webkit",
    },
    {
@@ -121,7 +121,9 @@ diff -Naur curl-curl-8_21_0/lib/impersonate.c curl-work/lib/impersonate.c
 +    .http3_pseudo_headers_order = "masp",
 +    .quic_cid_length = "webkit",
 +    .quic_transport_parameters = "1:30000;3:1472;4:15728640;5:6291456;6:6291456;7:6291456;8:100;9:103;15:;17:1@1,GREASE;32:65536;12584:0x4f524947;GREASE",
-+    .http3_tls_extension_order = "0-10-13-16-27-43-45-51-57-17613-65037",
++    /* Over QUIC, extensions left out of this list are not sent at all,
++       trust anchors (51764) included. */
++    .http3_tls_extension_order = "0-10-13-16-27-43-45-51-57-17613-51764-65037",
 +    .ech = "true",
 +    .tls_extension_order = NULL,
 +    .tls_use_new_alps_codepoint = true,
